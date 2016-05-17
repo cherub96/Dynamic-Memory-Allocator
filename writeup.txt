@@ -1,0 +1,104 @@
+Team Members:
+Devanshi Bansal ID-201401115
+Prachi Agrawal ID-201401219
+IT-215 Project-2: Malloc Dynamic Memory Allocator
+Date of Submission:
+(31/03/2016)
+
+
+DESCRIPTION:
+We've implemented an explicit free list with a first-fit searching algorithm and using immediate coalescing.
+A linked list of free blocks is created which does not use and extra heap space but uses only pointers to next and free blocks.
+We have used size of WSIZE as a void pointer. So, this code runs on 32-bit and 64-bit machines.Further details of functions are given in design. 
+
+
+DESIGN:
+In our code the free blocks are linked through linked list(i.e. explicit list),thus while traversing through a free list there is no need of moving through allocated blocks.We don't create the link list in seperate heap space but just link the free blocks through next and previous pointers. Traversing through only free blocks and not the allocated blocks saves a lot of time. 
+
+The structure of blocks on 32-bit machine:
+
+  --------------------------------------------------------------------------------
+ |header-4bytes| previous ptr-4bytes| next ptr-4bytes| payload data| footer-4bytes|
+  --------------------------------------------------------------------------------
+-We take the minimum size of payload to be 8 to satisfy the alignment restrictions. So,minimum block size in 32-bit machines is 24. 
+
+The structure of blocks on 64-bit machine:
+
+  ------------------------------------------------------------------------------------
+ |header-8 bytes| previous ptr-8 bytes| next ptr-8 bytes| payload data| footer-8 bytes|
+  ------------------------------------------------------------------------------------
+-We take the minimum size of payload to be 8 to satisfy the alignment restrictions. So,minimum block size in 32-bit machines is 24. 
+
+
+Main functions:
+1)int mm_init(void):
+ -creates initial empty heap using mem_sbrk function
+ -initialise heap list pointer
+ -initialise free list pointer 
+ -extend the heap size using extend_heap function.
+
+2) mm_malloc(size_t size)
+ -It ignores requests of mm_malloc() for unappropriate sizes.
+ -asize gives the size of block to be after considering alignment and overhead requests.
+ -searches for first free block using first fit principle in the explicit list.
+  - if it finds a fit then using place function it removes the block from explicit list and returns a pointer to payload of that block.
+  - if no block is available of requested size, it calls extend_heap function and gets more memory.
+
+3) mm_free(void* ptr)
+  -free the block pointed by ptr .
+  -It calls coalesce to check if there is a possibility of coalescing the block with its previous or next blocks.(using concept of immediate 	  coalesing.)
+
+4) mm_realloc(void *ptr, size_t size)
+  - reallocates block pointed by ptr with at least size bytes of payload.
+  -if size= 0 then the block is free, and we return NULL.
+  - if the ptr is NULL then this is similar to malloc.Hence it calls mm_malloc function.
+  -If requested size is greater than 0
+     - if requested size is less than original size,then it will simply return the pointer to old block.
+     -Else if requested size is greater then original size
+        -If the next block is not allocated and the size of the two blocks is greater than or equal the new size,then it removes next block from free list and allocates the two blocks as a combined block.
+        -If next block is not allocated and it is the last block in heap and size of two blocks if less than new size,then it extends the heap size by required amount. It combines the new allocated block with current block and assigns it as combined allocated block. 
+        -If the block to be reallocated is last block,so we extend the heap,then it extends the heap by required amount and allocates it.
+        -If next block is not free and it is not the last block, we malloc a new block of requested size.  
+
+
+Supporting functions:
+1)coalesce(void *ptr)
+  It is done to minimize internal fragmentation.
+  We check whether the nearby blocks of the block pointed by ptr are allocated or not.Depending on which we get four cases.
+  The four possible cases are:
+  1.If both the nearby blocks are allocated. Then simply add the pointer of current block to free list. No coalescing is done.
+  2.If previous block is allocated,next block is free. Then it updates size of free block to sum of current and next block.
+    It deletes the next block from free list and changes the header and footer data of the combined free block.
+  3.If previous block is free,next block is allocated. Then it updates size of free block to sum of current and previous block.
+    It deletes the previous block from free list and changes the header and footer data of the combined free block.
+  4.Both next and previous are free. Then it updates size of free block to sum of current,previous and next block.
+    It deletes both the next and previous block from free list and changes the header and footer data of combined free block.
+
+2)extend_heap(size_t words)
+  -Extend the heap with free block and return pointer to block.
+  -Checks whether the asked no. of words are even maintains the alignment.
+     -If yes then gives words*WSIZE size
+     -Otherwise gives (words+1)*WSIZE size
+  -Initializes free block header/footer and the epilogue header
+  -Checks if previous block is free, if yes then calls coalesce.
+
+3)find_fit(size_t asize)
+  -Using first fit principle traverses the explicit list.
+  -Returns pointer to block if fit is found else returns null.
+ 
+4)place(void *bp, size_t asize) 
+  -bp is the pointer of free block given by find_fit function and asize is the required size.
+  -If the difference of actual size(csize) alloted by find_fit and asize is greater then MINBLOCK size then: 
+    -assign block of size asize as allocated and remove it from free list and the remaining bytes form a free block.
+  - Else assign block of size asize as allocated and remove it from free list. 
+ 
+5)insert_freelist_front(void *bp)
+  -It inserts a free block at the beginning of list and sets its previous and next pointers and makes the freelist pointer to point to the beginning of free list.
+
+6)remove_freelist(void *bp)
+  - The basic funcion of this function is to remove the free block from the free_list when we malloc it.
+  - This method sets the previous block and the next block pointers to each others and eliminate the block to be removed.(this is similar to the delete function we use in a doubly link list.)
+
+7).checkheap(int verbose)
+  -This method is for user reference to check whether the header and footer of blocks are properly allocated and to check if the allocated bits of the blocks are correct.
+  -We assign footers only to free blocks so we traverse through free blocks in the explicit list in the checkheap function.
